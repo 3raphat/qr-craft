@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CopyIcon, DownloadIcon, ReloadIcon } from '@radix-ui/react-icons';
-import { ImageIcon } from '@radix-ui/react-icons';
+import { CopyIcon, DownloadIcon, ImageIcon, ReloadIcon } from '@radix-ui/react-icons';
+import { motion } from 'framer-motion';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -32,13 +32,15 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
-  value: z.string(),
+  value: z.string().min(1, {
+    message: 'QR Code value is required.',
+  }),
   format: z.enum(['png', 'svg']),
-  size: z.number(),
-  margin: z.number(),
+  size: z.number().min(128).max(4096),
+  margin: z.number().min(0).max(4),
   fgColor: z.string(),
   bgColor: z.string(),
-  logoSize: z.number(),
+  logoSize: z.number().min(1).max(50),
 });
 
 export function QRCodeGenerator() {
@@ -177,7 +179,11 @@ export function QRCodeGenerator() {
   };
 
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <Form {...form}>
         <form className="space-y-6">
           <FormField
@@ -372,6 +378,7 @@ export function QRCodeGenerator() {
                     onClick={(e) => {
                       e.preventDefault();
                     }}
+                    title="Reload Logo"
                   >
                     <ReloadIcon className="size-4" />
                   </Button>
@@ -413,7 +420,12 @@ export function QRCodeGenerator() {
       </Form>
 
       {qrValue && (
-        <div className="mx-auto mt-4 max-w-[256px]">
+        <motion.div
+          className="mx-auto mt-4 max-w-[256px]"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
           <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
             {form.getValues('format') === 'png' ? (
               <QRCodeCanvas
@@ -465,7 +477,12 @@ export function QRCodeGenerator() {
               />
             )}
           </div>
-          <div className="mt-4 flex flex-col gap-2">
+          <motion.div
+            className="mt-4 flex flex-col gap-2"
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.3 }}
+          >
             <Button
               variant="outline"
               onClick={copyQRCode}
@@ -478,9 +495,9 @@ export function QRCodeGenerator() {
               <DownloadIcon className="mr-2 size-4" />
               Download QR Code
             </Button>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
-    </>
+    </motion.div>
   );
 }

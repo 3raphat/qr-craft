@@ -1,5 +1,6 @@
 import { ImageIcon } from '@radix-ui/react-icons';
 import { BrowserQRCodeReader } from '@zxing/browser';
+import { motion } from 'framer-motion';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 
@@ -44,7 +45,12 @@ export function QRCodeReader() {
   });
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div
         {...getRootProps()}
         className={cn(
@@ -53,6 +59,7 @@ export function QRCodeReader() {
           isDragActive && 'border-muted-foreground/50 bg-muted/25',
           isDragReject && 'border-destructive bg-destructive/10'
         )}
+  
       >
         <div className="text-center">
           <div
@@ -93,7 +100,12 @@ export function QRCodeReader() {
         />
       </div>
       {qrCodeImage && (
-        <div className="flex justify-center">
+        <motion.div
+          className="flex justify-center"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
           <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
             <img
               src={qrCodeImage}
@@ -101,10 +113,15 @@ export function QRCodeReader() {
               className="h-auto max-h-64 max-w-full"
             />
           </div>
-        </div>
+        </motion.div>
       )}
       {qrCodeData && (
-        <div className="rounded-md bg-muted p-4">
+        <motion.div
+          className="rounded-md bg-muted p-4"
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.3 }}
+        >
           {isValidURL(qrCodeData) ? (
             <a
               href={qrCodeData}
@@ -117,14 +134,19 @@ export function QRCodeReader() {
           ) : (
             <p className="text-foreground">{qrCodeData}</p>
           )}
-        </div>
+        </motion.div>
       )}
       {errorMessage && (
-        <div className="rounded-md bg-destructive/10 p-4">
+        <motion.div
+          className="rounded-md bg-destructive/10 p-4"
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.3 }}
+        >
           <p className="font-medium text-destructive">{errorMessage}</p>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
