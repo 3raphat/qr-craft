@@ -1,7 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CopyIcon, DownloadIcon } from '@radix-ui/react-icons';
+import { CopyIcon, DownloadIcon, ReloadIcon } from '@radix-ui/react-icons';
+import { ImageIcon } from '@radix-ui/react-icons';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useDebouncedCallback } from 'use-debounce';
@@ -27,19 +29,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   value: z.string(),
   format: z.enum(['png', 'svg']),
   size: z.number(),
-  margin: z.number().array().length(1),
+  margin: z.number(),
   fgColor: z.string(),
   bgColor: z.string(),
+  logoSize: z.number(),
 });
 
 export function QRCodeGenerator() {
   const [qrValue, setQrValue] = useState('');
   const qrRef = useRef<HTMLCanvasElement | SVGSVGElement>(null);
+  const [logo, setLogo] = useState<string | null>(null); // For storing the uploaded logo
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,9 +52,10 @@ export function QRCodeGenerator() {
       value: '',
       format: 'png',
       size: 1024,
-      margin: [2],
+      margin: 2,
       fgColor: '#000000',
       bgColor: '#FFFFFF',
+      logoSize: 20,
     },
   });
 
@@ -77,6 +83,49 @@ export function QRCodeGenerator() {
     });
     return () => subscription.unsubscribe();
   }, [handleSubmit, debouncedHandleSubmit, formValues, form]);
+
+  const handleLogoUpload = useCallback((acceptedFiles: File[] | string) => {
+    const processImage = (src: string) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const size = Math.min(img.width, img.height);
+        canvas.width = size;
+        canvas.height = size;
+
+        const offsetX = (img.width - size) / 2;
+        const offsetY = (img.height - size) / 2;
+
+        ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, size, size);
+
+        const croppedDataUrl = canvas.toDataURL('image/png');
+        setLogo(croppedDataUrl);
+      };
+      img.src = src;
+    };
+
+    if (typeof acceptedFiles === 'string') {
+      processImage(acceptedFiles);
+    } else if (acceptedFiles.length > 0) {
+      const file = acceptedFiles[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        processImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
+    onDrop: handleLogoUpload,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+    },
+    multiple: false,
+  });
 
   const downloadFile = (url: string, filename: string) => {
     const downloadLink = document.createElement('a');
@@ -206,14 +255,13 @@ export function QRCodeGenerator() {
             name="margin"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Margin - {field.value[0]}</FormLabel>
+                <FormLabel>Margin - {field.value}</FormLabel>
                 <FormControl>
                   <Slider
                     min={0}
                     max={4}
                     step={1}
-                    value={field.value}
-                    defaultValue={[2]}
+                    value={[field.value]}
                     onValueChange={field.onChange}
                   />
                 </FormControl>
@@ -256,8 +304,114 @@ export function QRCodeGenerator() {
               )}
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FormLabel>Upload Logo</FormLabel>
+              <div
+                {...getRootProps()}
+                className={cn(
+                  'group relative grid h-32 w-full cursor-pointer place-items-center rounded-lg border-2 border-dashed border-muted-foreground/25 px-5 py-2.5 text-center transition hover:bg-muted/25',
+                  'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  isDragActive && 'border-muted-foreground/50 bg-muted/25',
+                  isDragReject && 'border-destructive bg-destructive/10'
+                )}
+              >
+                <div className="text-center">
+                  <div
+                    className={cn(
+                      'mx-auto max-w-min rounded-md border p-2 transition',
+                      isDragReject && 'border-destructive',
+                      isDragActive && 'border-muted-foreground/60'
+                    )}
+                  >
+                    <ImageIcon className={cn('size-5', isDragReject && 'text-destructive')} />
+                  </div>
+                  {isDragReject ? (
+                    <div>
+                      <p className="mt-2 text-sm text-destructive">
+                        <span className="font-semibold">File type not accepted</span>
+                      </p>
+                      <p className="text-xs text-destructive/80">Please upload an image file</p>
+                    </div>
+                  ) : isDragActive ? (
+                    <div>
+                      <p className="mt-2 text-sm text-secondary-foreground">
+                        <span className="font-semibold">Release to upload</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Your logo is ready to be added
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="mt-2 text-sm text-secondary-foreground">
+                        <span className="font-semibold">Drag & drop logo here</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">or click to select logo</p>
+                    </div>
+                  )}
+                </div>
+                <input {...getInputProps()} />
+              </div>
+            </div>
+
+            {logo && (
+              <div className="flex flex-col items-center justify-center">
+                <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
+                  <img
+                    src={logo}
+                    alt="Logo Preview"
+                    className="size-32 object-cover object-center"
+                  />
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    <ReloadIcon className="size-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setLogo(null);
+                    }}
+                  >
+                    Remove Logo
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="logoSize"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Logo Size - {field.value}%</FormLabel>
+                  <FormControl>
+                    <Slider
+                      min={1}
+                      max={50}
+                      step={1}
+                      value={[field.value]}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormDescription>Adjust the size of the logo inside the QR code.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </form>
       </Form>
+
       {qrValue && (
         <div className="mx-auto mt-4 max-w-[256px]">
           <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -271,9 +425,19 @@ export function QRCodeGenerator() {
                 }}
                 value={qrValue}
                 ref={qrRef as RefObject<HTMLCanvasElement>}
-                marginSize={form.getValues('margin')[0]}
+                marginSize={form.getValues('margin')}
                 fgColor={form.getValues('fgColor')}
                 bgColor={form.getValues('bgColor')}
+                imageSettings={
+                  logo
+                    ? {
+                        src: logo,
+                        height: (form.getValues('size') * form.getValues('logoSize')) / 100,
+                        width: (form.getValues('size') * form.getValues('logoSize')) / 100,
+                        excavate: true,
+                      }
+                    : undefined
+                }
               />
             ) : (
               <QRCodeSVG
@@ -285,9 +449,19 @@ export function QRCodeGenerator() {
                 }}
                 value={qrValue}
                 ref={qrRef as RefObject<SVGSVGElement>}
-                marginSize={form.getValues('margin')[0]}
+                marginSize={form.getValues('margin')}
                 fgColor={form.getValues('fgColor')}
                 bgColor={form.getValues('bgColor')}
+                imageSettings={
+                  logo
+                    ? {
+                        src: logo,
+                        height: (form.getValues('size') * form.getValues('logoSize')) / 100,
+                        width: (form.getValues('size') * form.getValues('logoSize')) / 100,
+                        excavate: true,
+                      }
+                    : undefined
+                }
               />
             )}
           </div>
